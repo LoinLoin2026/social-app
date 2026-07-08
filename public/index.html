@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>💬 تواصل – تسجيل الدخول</title>
+
+    <!-- ===== PWA ===== -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <meta name="theme-color" content="#00bcd4">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -17,7 +28,6 @@
             min-height: 100vh;
             padding: 15px;
         }
-
         .auth-container {
             max-width: 420px;
             width: 100%;
@@ -131,6 +141,13 @@
             font-size: 13px;
             text-align: center;
             margin-top: 10px;
+        }
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+        .row .input-group {
+            flex: 1;
         }
 
         /* ===== واجهة الدردشة ===== */
@@ -255,13 +272,6 @@
         .logout-btn:hover {
             background: #ff6b6b22;
         }
-        .row {
-            display: flex;
-            gap: 10px;
-        }
-        .row .input-group {
-            flex: 1;
-        }
     </style>
 </head>
 <body>
@@ -271,7 +281,6 @@
     <h1>💬 تواصل</h1>
     <p>سجل الدخول للدردشة مع أصدقائك</p>
 
-    <!-- تسجيل الدخول -->
     <div id="loginForm">
         <div class="input-group">
             <label>اسم المستخدم</label>
@@ -286,15 +295,12 @@
         <div id="loginError" class="error"></div>
     </div>
 
-    <!-- إنشاء حساب (متكامل) -->
     <div id="registerForm" class="hidden">
-        <!-- صورة شخصية -->
         <div class="input-group">
             <label>الصورة الشخصية</label>
             <div class="avatar-preview" id="avatarPreview">👤</div>
             <input type="file" id="avatarInput" accept="image/*" onchange="previewAvatar(event)">
         </div>
-
         <div class="input-group">
             <label>اسم المستخدم</label>
             <input type="text" id="registerUsername" placeholder="اختر اسم مستخدم">
@@ -307,8 +313,6 @@
             <label>كلمة المرور</label>
             <input type="password" id="registerPassword" placeholder="اختر كلمة مرور">
         </div>
-
-        <!-- تاريخ الميلاد -->
         <div class="row">
             <div class="input-group">
                 <label>اليوم</label>
@@ -342,7 +346,6 @@
                 <select id="regYear"></select>
             </div>
         </div>
-
         <button class="btn" onclick="registerUser()">إنشاء حساب</button>
         <div class="link">لديك حساب؟ <span onclick="showLogin()">تسجيل الدخول</span></div>
         <div id="registerError" class="error"></div>
@@ -392,22 +395,26 @@
         }
     }
 
-    // ===== إدارة المستخدمين =====
-    function getUsers() {
-        return JSON.parse(localStorage.getItem('chatUsers') || '{}');
+    // ===== تبديل الشاشات =====
+    function showRegister() {
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('registerForm').classList.remove('hidden');
+        document.getElementById('loginError').textContent = '';
+        document.getElementById('registerError').textContent = '';
+        document.getElementById('registerSuccess').textContent = '';
     }
 
-    function saveUsers(users) {
-        localStorage.setItem('chatUsers', JSON.stringify(users));
+    function showLogin() {
+        document.getElementById('registerForm').classList.add('hidden');
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('loginError').textContent = '';
+        document.getElementById('registerError').textContent = '';
+        document.getElementById('registerSuccess').textContent = '';
     }
 
-    function getCurrentUser() {
-        return localStorage.getItem('chatCurrentUser') || null;
-    }
-
-    function setCurrentUser(username) {
-        localStorage.setItem('chatCurrentUser', username);
-    }
+    // ===== اتصال Socket.io =====
+    const socket = io('https://social-app-uljs.onrender.com');
+    let currentUser = '';
 
     // ===== تسجيل الدخول =====
     function loginUser() {
@@ -420,14 +427,7 @@
             return;
         }
 
-        const users = getUsers();
-        if (users[username] && users[username].password === password) {
-            errorDiv.textContent = '';
-            setCurrentUser(username);
-            showChat();
-        } else {
-            errorDiv.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
-        }
+        socket.emit('login', { username, password });
     }
 
     // ===== إنشاء حساب =====
@@ -449,92 +449,90 @@
             return;
         }
 
-        const users = getUsers();
-        if (users[username]) {
-            errorDiv.textContent = 'اسم المستخدم موجود بالفعل';
-            successDiv.textContent = '';
-            return;
-        }
-
-        // تخزين الصورة كـ base64 (إذا وجدت)
         let avatar = '';
         const img = avatarPreview.querySelector('img');
         if (img) {
             avatar = img.src;
         }
 
-        users[username] = {
-            password: password,
-            email: email,
+        socket.emit('register', {
+            username,
+            password,
+            email,
             birthday: `${day}/${month}/${year}`,
-            avatar: avatar
-        };
+            avatar
+        });
+    }
 
-        saveUsers(users);
-        errorDiv.textContent = '';
-        successDiv.textContent = '✅ تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.';
+    // ===== أحداث Socket =====
+    socket.on('loginSuccess', (data) => {
+        currentUser = data.username;
+        document.getElementById('authContainer').classList.add('hidden');
+        document.getElementById('chatContainer').classList.remove('hidden');
+        document.getElementById('status').innerHTML = '🟢 ' + currentUser;
+        document.getElementById('loginError').textContent = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginUsername').value = '';
+    });
 
+    socket.on('loginError', (msg) => {
+        document.getElementById('loginError').textContent = msg;
+    });
+
+    socket.on('registerSuccess', (msg) => {
+        document.getElementById('registerSuccess').textContent = msg;
+        document.getElementById('registerError').textContent = '';
         document.getElementById('registerUsername').value = '';
         document.getElementById('registerEmail').value = '';
         document.getElementById('registerPassword').value = '';
-        avatarPreview.innerHTML = '👤';
+        document.getElementById('avatarPreview').innerHTML = '👤';
         document.getElementById('avatarInput').value = '';
-    }
+        setTimeout(() => {
+            showLogin();
+        }, 2000);
+    });
 
-    // ===== تبديل الشاشات =====
-    function showRegister() {
-        document.getElementById('loginForm').classList.add('hidden');
-        document.getElementById('registerForm').classList.remove('hidden');
-        document.getElementById('loginError').textContent = '';
-        document.getElementById('registerError').textContent = '';
+    socket.on('registerError', (msg) => {
+        document.getElementById('registerError').textContent = msg;
         document.getElementById('registerSuccess').textContent = '';
-    }
+    });
 
-    function showLogin() {
-        document.getElementById('registerForm').classList.add('hidden');
-        document.getElementById('loginForm').classList.remove('hidden');
-        document.getElementById('loginError').textContent = '';
-        document.getElementById('registerError').textContent = '';
-        document.getElementById('registerSuccess').textContent = '';
-    }
-
-    // ===== الدردشة =====
-    let socket = null;
-    let currentUser = '';
-
-    function showChat() {
-        document.getElementById('authContainer').classList.add('hidden');
-        document.getElementById('chatContainer').classList.remove('hidden');
-        currentUser = getCurrentUser();
-        document.getElementById('status').innerHTML = '🟢 ' + currentUser;
-
-        socket = io();
-        socket.on('connect', () => {
-            console.log('✅ متصل بالخادم');
-        });
-
-        socket.on('receiveMessage', (data) => {
-            const messagesDiv = document.getElementById('messages');
+    // ===== تحميل الرسائل السابقة =====
+    socket.on('loadMessages', (messages) => {
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.innerHTML = '';
+        messages.forEach(msg => {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'msg received';
             msgDiv.innerHTML = `
-                <div class="user">${data.user || 'مجهول'}</div>
-                <div>${data.message || ''}</div>
-                <div class="time">${data.time || ''}</div>
+                <div class="user">${msg.username || msg.user}</div>
+                <div>${msg.message}</div>
+                <div class="time">${msg.time}</div>
             `;
             messagesDiv.appendChild(msgDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
 
-        socket.on('disconnect', () => {
-            document.getElementById('status').innerHTML = '🔴 غير متصل';
-        });
-    }
+    // ===== استقبال رسالة جديدة =====
+    socket.on('receiveMessage', (data) => {
+        const messagesDiv = document.getElementById('messages');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'msg received';
+        msgDiv.innerHTML = `
+            <div class="user">${data.username || data.user}</div>
+            <div>${data.message}</div>
+            <div class="time">${data.time}</div>
+        `;
+        messagesDiv.appendChild(msgDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
 
+    // ===== إرسال رسالة =====
     function sendMessage() {
         const input = document.getElementById('msgInput');
         const message = input.value.trim();
-        if (!message || !socket) return;
+        if (!message || !currentUser) return;
 
         socket.emit('sendMessage', {
             user: currentUser,
@@ -554,18 +552,15 @@
         input.value = '';
     }
 
+    // ===== تسجيل الخروج =====
     function logout() {
-        if (socket) socket.disconnect();
-        localStorage.removeItem('chatCurrentUser');
+        socket.disconnect();
         document.getElementById('chatContainer').classList.add('hidden');
         document.getElementById('authContainer').classList.remove('hidden');
+        currentUser = '';
         document.getElementById('loginPassword').value = '';
         document.getElementById('loginError').textContent = '';
-    }
-
-    // ===== التحقق من الجلسة =====
-    if (getCurrentUser()) {
-        showChat();
+        document.getElementById('messages').innerHTML = '';
     }
 
     // ===== دعم Enter =====
@@ -574,6 +569,9 @@
     });
     document.getElementById('registerPassword').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') registerUser();
+    });
+    document.getElementById('msgInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMessage();
     });
 </script>
 
