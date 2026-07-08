@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DWR English Academy – 6 مراحل</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #0b0e14; color: #e0e6f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        #app { max-width: 550px; width: 100%; padding: 20px; background: #141a24; border-radius: 30px; box-shadow: 0 10px 30px #00000080; }
+        h1 { text-align: center; font-size: 24px; color: #b7f0ff; margin-bottom: 4px; }
+        .subtitle { text-align: center; font-size: 13px; color: #8895aa; margin-bottom: 15px; }
+        #folder-nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 15px; }
+        .folder-btn { background: #1f2a3a; border: none; color: #c0c8d8; padding: 6px 12px; border-radius: 30px; cursor: pointer; font-size: 13px; transition: 0.2s; border: 1px solid #3e4a5a; }
+        .folder-btn.active { background: #2d6cff; color: white; border-color: #6a8cff; }
+        .folder-btn:hover { background: #3a4758; }
+        #folder-label { text-align: center; font-size: 16px; color: #b7f0ff; margin-bottom: 12px; font-weight: bold; }
+        #card { background: #1e2633; padding: 22px 16px; border-radius: 24px; min-height: 190px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #sub-info { font-size: 15px; color: #b0c0d0; margin-bottom: 8px; }
+        #question { font-size: 32px; font-weight: bold; color: #ffffff; margin-bottom: 12px; }
+        #options { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+        .opt { background: #28323f; padding: 12px; border-radius: 60px; cursor: pointer; transition: 0.2s; border: 1px solid #3e4a5a; font-size: 17px; }
+        .opt:hover { background: #3a4758; border-color: #6a8cff; }
+        .opt.correct { background: #1f8b4c; border-color: #2ecc71; }
+        .opt.wrong { background: #8b1f2e; border-color: #ff4757; }
+        #next-btn { margin-top: 18px; background: #2d6cff; border: none; color: white; padding: 14px; border-radius: 60px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        #next-btn:hover { background: #1a4fcc; }
+        #progress { margin-top: 12px; display: flex; justify-content: space-between; font-size: 14px; color: #8895aa; }
+        #speak-btn { background: #3a4a5e; border: none; color: white; padding: 8px 18px; border-radius: 40px; margin-top: 10px; cursor: pointer; font-size: 15px; }
+        #speak-btn:hover { background: #4f637a; }
+        #feedback { margin-top: 10px; font-size: 17px; min-height: 28px; }
+        .hidden { display: none; }
+        #progress-bar { width: 100%; height: 6px; background: #1f2a3a; border-radius: 10px; margin-top: 10px; overflow: hidden; }
+        #progress-fill { height: 100%; width: 0%; background: #2d6cff; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>🎓 DWR Academy</h1>
+    <div class="subtitle">6 مراحل – من الصفر إلى القراءة</div>
+    <div id="folder-nav">
+        <button class="folder-btn active" data-folder="0">1. أسماء الحروف</button>
+        <button class="folder-btn" data-folder="1">2. أصوات الحروف</button>
+        <button class="folder-btn" data-folder="2">3. متحركة + ساكنة</button>
+        <button class="folder-btn" data-folder="3">4. كلمات متنوعة</button>
+        <button class="folder-btn" data-folder="4">5. تركيب كلمات</button>
+        <button class="folder-btn" data-folder="5">6. كلمات مترجمة</button>
+    </div>
+    <div id="folder-label">📁 <span id="folder-name">أسماء الحروف</span></div>
+    <div id="card">
+        <div id="sub-info"></div>
+        <div id="question">A</div>
+        <div id="options"></div>
+        <button id="speak-btn">🔊 استمع</button>
+        <div id="feedback"></div>
+    </div>
+    <button id="next-btn">▶ التالي</button>
+    <div id="progress">
+        <span>✅ صحيح: <span id="score">0</span></span>
+        <span>📌 الدرس: <span id="lesson-num">1</span>/<span id="total-lessons">0</span></span>
+    </div>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+</div>
+<script>
+    // ============================================================
+    // محرك النطق
+    // ============================================================
+    function speakHuman(text) {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US';
+        u.rate = 0.85;
+        u.pitch = 1.0;
+        u.volume = 1;
+        const voices = window.speechSynthesis.getVoices();
+        const v = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+        if (v) u.voice = v;
+        window.speechSynthesis.speak(u);
+    }
+
+    // ============================================================
+    // قاعدة البيانات – 6 مجلدات بالترتيب المطلوب
+    // ============================================================
+    const FOLDERS = [
+        // ===== المجلد 0: أسماء الحروف (Letter Names) =====
+        { name: 'أسماء الحروف', lessons: [
+            { q: 'A', sub: 'الاسم: إي', options: ['إي', 'بي', 'سي', 'دي'], correct: 'إي' },
+            { q: 'B', sub: 'الاسم: بي', options: ['بي', 'إي', 'سي', 'دي'], correct: 'بي' },
+            { q: 'C', sub: 'الاسم: سي', options: ['سي', 'إي', 'بي', 'دي'], correct: 'سي' },
+            { q: 'D', sub: 'الاسم: دي', options: ['دي', 'إي', 'بي', 'سي'], correct: 'دي' },
+            { q: 'E', sub: 'الاسم: إي', options: ['إي', 'بي', 'سي', 'دي'], correct: 'إي' },
+            { q: 'F', sub: 'الاسم: إف', options: ['إف', 'إي', 'بي', 'سي'], correct: 'إف' },
+            { q: 'G', sub: 'الاسم: جي', options: ['جي', 'إي', 'بي', 'دي'], correct: 'جي' },
+            { q: 'H', sub: 'الاسم: إتش', options: ['إتش', 'إي', 'بي', 'سي'], correct: 'إتش' },
+            { q: 'I', sub: 'الاسم: آي', options: ['آي', 'إي', 'بي', 'دي'], correct: 'آي' },
+            { q: 'J', sub: 'الاسم: جاي', options: ['جاي', 'إي', 'بي', 'سي'], correct: 'جاي' },
+            { q: 'K', sub: 'الاسم: كاي', options: ['كاي', 'إي', 'بي', 'دي'], correct: 'كاي' },
+            { q: 'L', sub: 'الاسم: إل', options: ['إل', 'إي', 'بي', 'سي'], correct: 'إل' },
+            { q: 'M', sub: 'الاسم: إم', options: ['إم', 'إي', 'بي', 'دي'], correct: 'إم' },
+            { q: 'N', sub: 'الاسم: إن', options: ['إن', 'إي', 'بي', 'سي'], correct: 'إن' },
+            { q: 'O', sub: 'الاسم: أو', options: ['أو', 'إي', 'بي', 'دي'], correct: 'أو' },
+            { q: 'P', sub: 'الاسم: بي', options: ['بي', 'إي', 'سي', 'دي'], correct: 'بي' },
+            { q: 'Q', sub: 'الاسم: كيو', options: ['كيو', 'إي', 'بي', 'دي'], correct: 'كيو' },
+            { q: 'R', sub: 'الاسم: آر', options: ['آر', 'إي', 'بي', 'سي'], correct: 'آر' },
+            { q: 'S', sub: 'الاسم: إس', options: ['إس', 'إي', 'بي', 'دي'], correct: 'إس' },
+            { q: 'T', sub: 'الاسم: تي', options: ['تي', 'إي', 'بي', 'سي'], correct: 'تي' },
+            { q: 'U', sub: 'الاسم: يو', options: ['يو', 'إي', 'بي', 'دي'], correct: 'يو' },
+            { q: 'V', sub: 'الاسم: في', options: ['في', 'إي', 'بي', 'سي'], correct: 'في' },
+            { q: 'W', sub: 'الاسم: دبليو', options: ['دبليو', 'إي', 'بي', 'دي'], correct: 'دبليو' },
+            { q: 'X', sub: 'الاسم: إكس', options: ['إكس', 'إي', 'بي', 'سي'], correct: 'إكس' },
+            { q: 'Y', sub: 'الاسم: واي', options: ['واي', 'إي', 'بي', 'دي'], correct: 'واي' },
+            { q: 'Z', sub: 'الاسم: زيد', options: ['زيد', 'إي', 'بي', 'سي'], correct: 'زيد' },
+        ]},
+
+        // ===== المجلد 1: أصوات الحروف (Letter Sounds) =====
+        { name: 'أصوات الحروف', lessons: [
+            { q: 'A', sub: 'الصوت: آ (apple)', options: ['آ', 'إي', 'أ', 'إ'], correct: 'آ' },
+            { q: 'B', sub: 'الصوت: بَ (bat)', options: ['بَ', 'دَ', 'فَ', 'كَ'], correct: 'بَ' },
+            { q: 'C', sub: 'الصوت: كَ (cat)', options: ['كَ', 'سَ', 'تِ', 'مَ'], correct: 'كَ' },
+            { q: 'D', sub: 'الصوت: دَ (dog)', options: ['دَ', 'بَ', 'جَ', 'فَ'], correct: 'دَ' },
+            { q: 'E', sub: 'الصوت: إ (egg)', options: ['إ', 'آ', 'أ', 'ي'], correct: 'إ' },
+            { q: 'F', sub: 'الصوت: فَ (fish)', options: ['فَ', 'سَ', 'شَ', 'ثَ'], correct: 'فَ' },
+            { q: 'G', sub: 'الصوت: جَ (go)', options: ['جَ', 'غَ', 'دَ', 'بَ'], correct: 'جَ' },
+            { q: 'H', sub: 'الصوت: هَ (hat)', options: ['هَ', 'حَ', 'خَ', 'عَ'], correct: 'هَ' },
+            { q: 'I', sub: 'الصوت: إ (sit)', options: ['إ', 'آ', 'ي', 'أ'], correct: 'إ' },
+            { q: 'J', sub: 'الصوت: جَ (jump)', options: ['جَ', 'يَ', 'دَ', 'فَ'], correct: 'جَ' },
+            { q: 'K', sub: 'الصوت: كَ (kite)', options: ['كَ', 'قَ', 'تِ', 'مَ'], correct: 'كَ' },
+            { q: 'L', sub: 'الصوت: لَ (leg)', options: ['لَ', 'رَ', 'مَ', 'نَ'], correct: 'لَ' },
+            { q: 'M', sub: 'الصوت: مَ (man)', options: ['مَ', 'نَ', 'بَ', 'دَ'], correct: 'مَ' },
+            { q: 'N', sub: 'الصوت: نَ (net)', options: ['نَ', 'مَ', 'لَ', 'رَ'], correct: 'نَ' },
+            { q: 'O', sub: 'الصوت: أ (hot)', options: ['أ', 'آ', 'إ', 'و'], correct: 'أ' },
+            { q: 'P', sub: 'الصوت: بَ (pen)', options: ['بَ', 'تِ', 'دَ', 'فَ'], correct: 'بَ' },
+            { q: 'Q', sub: 'الصوت: كَ (queen)', options: ['كَ', 'قَ', 'تِ', 'مَ'], correct: 'كَ' },
+            { q: 'R', sub: 'الصوت: رَ (run)', options: ['رَ', 'لَ', 'مَ', 'نَ'], correct: 'رَ' },
+            { q: 'S', sub: 'الصوت: سَ (sun)', options: ['سَ', 'شَ', 'صَ', 'ثَ'], correct: 'سَ' },
+            { q: 'T', sub: 'الصوت: تَ (top)', options: ['تَ', 'دَ', 'بَ', 'فَ'], correct: 'تَ' },
+            { q: 'U', sub: 'الصوت: أ (cup)', options: ['أ', 'آ', 'إ', 'ي'], correct: 'أ' },
+            { q: 'V', sub: 'الصوت: فَ (van)', options: ['فَ', 'بَ', 'دَ', 'جَ'], correct: 'فَ' },
+            { q: 'W', sub: 'الصوت: و (win)', options: ['و', 'ي', 'رَ', 'لَ'], correct: 'و' },
+            { q: 'X', sub: 'الصوت: كس (box)', options: ['كس', 'سَ', 'كَ', 'زَ'], correct: 'كس' },
+            { q: 'Y', sub: 'الصوت: ي (yes)', options: ['ي', 'و', 'رَ', 'لَ'], correct: 'ي' },
+            { q: 'Z', sub: 'الصوت: زَ (zip)', options: ['زَ', 'سَ', 'دَ', 'بَ'], correct: 'زَ' },
+        ]},
+
+        // ===== المجلد 2: الحروف المتحركة + الساكنة =====
+        { name: 'متحركة و ساكنة', lessons: [
+            { q: 'Vowels: A, E, I, O, U', sub: 'حروف متحركة (short sounds)', options: ['آ, إ, إ, أ, أ', 'إي, إي, آي, أو, يو', 'ب, د, ف, ك, م', 'س, ش, ص, ث, ز'], correct: 'آ, إ, إ, أ, أ' },
+            { q: 'Long Vowel: A', sub: 'صوت طويل: إي (cake)', options: ['إي', 'آ', 'أ', 'إ'], correct: 'إي' },
+            { q: 'Long Vowel: E', sub: 'صوت طويل: إي (see)', options: ['إي', 'إ', 'آ', 'أ'], correct: 'إي' },
+            { q: 'Long Vowel: I', sub: 'صوت طويل: آي (like)', options: ['آي', 'إ', 'آ', 'أ'], correct: 'آي' },
+            { q: 'Long Vowel: O', sub: 'صوت طويل: أو (home)', options: ['أو', 'أ', 'آ', 'إ'], correct: 'أو' },
+            { q: 'Long Vowel: U', sub: 'صوت طويل: يو (cute)', options: ['يو', 'أ', 'آ', 'إ'], correct: 'يو' },
+            { q: 'Consonant: B', sub: 'حرف ساكن: بَ (bat)', options: ['بَ', 'دَ', 'فَ', 'كَ'], correct: 'بَ' },
+            { q: 'Consonant: D', sub: 'حرف ساكن: دَ (dog)', options: ['دَ', 'بَ', 'جَ', 'فَ'], correct: 'دَ' },
+            { q: 'Consonant: F', sub: 'حرف ساكن: فَ (fish)', options: ['فَ', 'سَ', 'شَ', 'ثَ'], correct: 'فَ' },
+            { q: 'Consonant: K', sub: 'حرف ساكن: كَ (kite)', options: ['كَ', 'قَ', 'تِ', 'مَ'], correct: 'كَ' },
+            { q: 'Consonant: M', sub: 'حرف ساكن: مَ (man)', options: ['مَ', 'نَ', 'بَ', 'دَ'], correct: 'مَ' },
+            { q: 'Consonant: N', sub: 'حرف ساكن: نَ (net)', options: ['نَ', 'مَ', 'لَ', 'رَ'], correct: 'نَ' },
+            { q: 'Consonant: P', sub: 'حرف ساكن: بَ (pen)', options: ['بَ', 'تِ', 'دَ', 'فَ'], correct: 'بَ' },
+            { q: 'Consonant: R', sub: 'حرف ساكن: رَ (run)', options: ['رَ', 'لَ', 'مَ', 'نَ'], correct: 'رَ' },
+            { q: 'Consonant: S', sub: 'حرف ساكن: سَ (sun)', options: ['سَ', 'شَ', 'صَ', 'ثَ'], correct: 'سَ' },
+            { q: 'Consonant: T', sub: 'حرف ساكن: تَ (top)', options: ['تَ', 'دَ', 'بَ', 'فَ'], correct: 'تَ' },
+            { q: 'Consonant: V', sub: 'حرف ساكن: فَ (van)', options: ['فَ', 'بَ', 'دَ', 'جَ'], correct: 'فَ' },
+            { q: 'Consonant: Z', sub: 'حرف ساكن: زَ (zip)', options: ['زَ', 'سَ', 'دَ', 'بَ'], correct: 'زَ' },
+        ]},
+
+        // ===== المجلد 3: كلمات متنوعة =====
+        { name: 'كلمات متنوعة', lessons: [
+            { q: 'Cat', sub: 'قطة', options: ['قطة', 'كلب', 'طائر', 'سمكة'], correct: 'قطة' },
+            { q: 'Dog', sub: 'كلب', options: ['كلب', 'قطة', 'حصان', 'بقرة'], correct: 'كلب' },
+            { q: 'Sun', sub: 'شمس', options: ['شمس', 'قمر', 'نجم', 'سحاب'], correct: 'شمس' },
+            { q: 'Moon', sub: 'قمر', options: ['قمر', 'شمس', 'نجم', 'كوكب'], correct: 'قمر' },
+            { q: 'Book', sub: 'كتاب', options: ['كتاب', 'قلم', 'مدرسة', 'معلم'], correct: 'كتاب' },
+            { q: 'Pen', sub: 'قلم', options: ['قلم', 'كتاب', 'ممحاة', 'مسطرة'], correct: 'قلم' },
+            { q: 'House', sub: 'منزل', options: ['منزل', 'سيارة', 'حديقة', 'باب'], correct: 'منزل' },
+            { q: 'Car', sub: 'سيارة', options: ['سيارة', 'دراجة', 'حافلة', 'قطار'], correct: 'سيارة' },
+            { q: 'Tree', sub: 'شجرة', options: ['شجرة', 'زهرة', 'عشب', 'غابة'], correct: 'شجرة' },
+            { q: 'Flower', sub: 'زهرة', options: ['زهرة', 'شجرة', 'وردة', 'نبات'], correct: 'زهرة' },
+            { q: 'Water', sub: 'ماء', options: ['ماء', 'حليب', 'عصير', 'شاي'], correct: 'ماء' },
+            { q: 'Milk', sub: 'حليب', options: ['حليب', 'ماء', 'عصير', 'قهوة'], correct: 'حليب' },
+            { q: 'Bread', sub: 'خبز', options: ['خبز', 'جبن', 'لحم', 'فاكهة'], correct: 'خبز' },
+            { q: 'Apple', sub: 'تفاحة', options: ['تفاحة', 'موزة', 'برتقالة', 'عنب'], correct: 'تفاحة' },
+            { q: 'Happy', sub: 'سعيد', options: ['سعيد', 'حزين', 'غاضب', 'خائف'], correct: 'سعيد' },
+            { q: 'Sad', sub: 'حزين', options: ['حزين', 'سعيد', 'مندهش', 'متعب'], correct: 'حزين' },
+            { q: 'Big', sub: 'كبير', options: ['كبير', 'صغير', 'طويل', 'قصير'], correct: 'كبير' },
+            { q: 'Small', sub: 'صغير', options: ['صغير', 'كبير', 'ضخم', 'نحيف'], correct: 'صغير' },
+        ]},
+
+        // ===== المجلد 4: تركيب كلمات (Blending) =====
+        { name: 'تركيب كلمات', lessons: [
+            { q: 'c-a-t → cat', sub: 'اقرأ: قط', options: ['قط', 'كلب', 'فأر', 'طائر'], correct: 'قط' },
+            { q: 'd-o-g → dog', sub: 'اقرأ: كلب', options: ['كلب', 'قط', 'حصان', 'بقرة'], correct: 'كلب' },
+            { q: 's-u-n → sun', sub: 'اقرأ: شمس', options: ['شمس', 'قمر', 'نجم', 'سحاب'], correct: 'شمس' },
+            { q: 'h-a-t → hat', sub: 'اقرأ: قبعة', options: ['قبعة', 'حذاء', 'جورب', 'قفاز'], correct: 'قبعة' },
+            { q: 'b-e-d → bed', sub: 'اقرأ: سرير', options: ['سرير', 'كرسي', 'طاولة', 'باب'], correct: 'سرير' },
+            { q: 'c-u-p → cup', sub: 'اقرأ: كوب', options: ['كوب', 'صحن', 'ملعقة', 'سكين'], correct: 'كوب' },
+            { q: 'p-e-n → pen', sub: 'اقرأ: قلم', options: ['قلم', 'كتاب', 'ممحاة', 'مسطرة'], correct: 'قلم' },
+            { q: 'm-a-p → map', sub: 'اقرأ: خريطة', options: ['خريطة', 'علم', 'صورة', 'لوحة'], correct: 'خريطة' },
+            { q: 'b-o-x → box', sub: 'اقرأ: صندوق', options: ['صندوق', 'كرة', 'دمية', 'طبلة'], correct: 'صندوق' },
+            { q: 'f-i-sh → fish', sub: 'اقرأ: سمكة', options: ['سمكة', 'ضفدع', 'سلحفاة', 'بطريق'], correct: 'سمكة' },
+            { q: 'sh-i-p → ship', sub: 'اقرأ: سفينة', options: ['سفينة', 'طائرة', 'سيارة', 'قطار'], correct: 'سفينة' },
+            { q: 'd-u-ck → duck', sub: 'اقرأ: بطة', options: ['بطة', 'دجاجة', 'عصفور', 'حمامة'], correct: 'بطة' },
+            { q: 't-r-ee → tree', sub: 'اقرأ: شجرة', options: ['شجرة', 'زهرة', 'عشب', 'ورقة'], correct: 'شجرة' },
+            { q: 'b-oo-k → book', sub: 'اقرأ: كتاب', options: ['كتاب', 'مدرسة', 'معلم', 'طالب'], correct: 'كتاب' },
+            { q: 'm-oo-n → moon', sub: 'اقرأ: قمر', options: ['قمر', 'شمس', 'نجم', 'كوكب'], correct: 'قمر' },
+            { q: 'st-a-r → star', sub: 'اقرأ: نجم', options: ['نجم', 'قمر', 'شمس', 'سحاب'], correct: 'نجم' },
+            { q: 'b-a-ll → ball', sub: 'اقرأ: كرة', options: ['كرة', 'دمية', 'طبلة', 'قارب'], correct: 'كرة' },
+        ]},
+
+        // ===== المجلد 5: كلمات مترجمة (مراجعة) =====
+        { name: 'كلمات مترجمة', lessons: [
+            { q: 'Apple', sub: 'تفاحة', options: ['تفاحة', 'موزة', 'برتقالة', 'عنب'], correct: 'تفاحة' },
+            { q: 'Banana', sub: 'موزة', options: ['موزة', 'تفاحة', 'برتقالة', 'فراولة'], correct: 'موزة' },
+            { q: 'Orange', sub: 'برتقالة', options: ['برتقالة', 'تفاحة', 'موزة', 'ليمون'], correct: 'برتقالة' },
+            { q: 'Grape', sub: 'عنب', options: ['عنب', 'تفاحة', 'موزة', 'برتقالة'], correct: 'عنب' },
+            { q: 'Strawberry', sub: 'فراولة', options: ['فراولة', 'عنب', 'موزة', 'تفاحة'], correct: 'فراولة' },
+            { q: 'Watermelon', sub: 'بطيخ', options: ['بطيخ', 'تفاحة', 'موزة', 'برتقالة'], correct: 'بطيخ' },
+            { q: 'Pineapple', sub: 'أناناس', options: ['أناناس', 'موزة', 'تفاحة', 'عنب'], correct: 'أناناس' },
+            { q: 'Mango', sub: 'مانجو', options: ['مانجو', 'تفاحة', 'موزة', 'برتقالة'], correct: 'مانجو' },
+            { q: 'Lemon', sub: 'ليمون', options: ['ليمون', 'برتقالة', 'تفاحة', 'موزة'], correct: 'ليمون' },
+            { q: 'Peach', sub: 'خوخ', options: ['خوخ', 'تفاحة', 'موزة', 'برتقالة'], correct: 'خوخ' },
+            { q: 'Pear', sub: 'كمثرى', options: ['كمثرى', 'تفاحة', 'موزة', 'برتقالة'], correct: 'كمثرى' },
+            { q: 'Cherry', sub: 'كرز', options: ['كرز', 'تفاحة', 'موزة', 'برتقالة'], correct: 'كرز' },
+            { q: 'Water', sub: 'ماء', options: ['ماء', 'حليب', 'عصير', 'شاي'], correct: 'ماء' },
+            { q: 'Milk', sub: 'حليب', options: ['حليب', 'ماء', 'عصير', 'قهوة'], correct: 'حليب' },
+            { q: 'Juice', sub: 'عصير', options: ['عصير', 'ماء', 'حليب', 'شاي'], correct: 'عصير' },
+            { q: 'Tea', sub: 'شاي', options: ['شاي', 'قهوة', 'عصير', 'حليب'], correct: 'شاي' },
+            { q: 'Coffee', sub: 'قهوة', options: ['قهوة', 'شاي', 'عصير', 'حليب'], correct: 'قهوة' },
+            { q: 'Bread', sub: 'خبز', options: ['خبز', 'جبن', 'لحم', 'فاكهة'], correct: 'خبز' },
+            { q: 'Cheese', sub: 'جبن', options: ['جبن', 'خبز', 'لحم', 'فاكهة'], correct: 'جبن' },
+            { q: 'Meat', sub: 'لحم', options: ['لحم', 'جبن', 'خبز', 'فاكهة'], correct: 'لحم' },
+            { q: 'Chicken', sub: 'دجاج', options: ['دجاج', 'لحم', 'سمك', 'بيض'], correct: 'دجاج' },
+            { q: 'Fish', sub: 'سمك', options: ['سمك', 'دجاج', 'لحم', 'بيض'], correct: 'سمك' },
+            { q: 'Egg', sub: 'بيض', options: ['بيض', 'دجاج', 'سمك', 'لحم'], correct: 'بيض' },
+            { q: 'Rice', sub: 'أرز', options: ['أرز', 'خبز', 'معكرونة', 'بطاطس'], correct: 'أرز' },
+            { q: 'Pasta', sub: 'معكرونة', options: ['معكرونة', 'أرز', 'خبز', 'بطاطس'], correct: 'معكرونة' },
+            { q: 'Potato', sub: 'بطاطس', options: ['بطاطس', 'أرز', 'معكرونة', 'خبز'], correct: 'بطاطس' },
+            { q: 'Tomato', sub: 'طماطم', options: ['طماطم', 'بطاطس', 'بصل', 'خيار'], correct: 'طماطم' },
+            { q: 'Onion', sub: 'بصل', options: ['بصل', 'طماطم', 'خيار', 'فلفل'], correct: 'بصل' },
+            { q: 'Cucumber', sub: 'خيار', options: ['خيار', 'طماطم', 'بصل', 'فلفل'], correct: 'خيار' },
+            { q: 'Pepper', sub: 'فلفل', options: ['فلفل', 'خيار', 'طماطم', 'بصل'], correct: 'فلفل' },
+            { q: 'Carrot', sub: 'جزر', options: ['جزر', 'بطاطس', 'بصل', 'خيار'], correct: 'جزر' },
+            { q: 'Lettuce', sub: 'خس', options: ['خس', 'جزر', 'طماطم', 'خيار'], correct: 'خس' },
+            { q: 'Cabbage', sub: 'كرنب', options: ['كرنب', 'خس', 'جزر', 'بطاطس'], correct: 'كرنب' },
+            { q: 'Garlic', sub: 'ثوم', options: ['ثوم', 'بصل', 'فلفل', 'جزر'], correct: 'ثوم' },
+            { q: 'Ginger', sub: 'زنجبيل', options: ['زنجبيل', 'ثوم', 'بصل', 'فلفل'], correct: 'زنجبيل' },
+        ]},
+    ];
+
+    // ============================================================
+    // التطبيق
+    // ============================================================
+    let currentFolder = 0;
+    let currentIndexInFolder = 0;
+    let score = 0;
+    let currentLesson = null;
+    let answered = false;
+    let totalLessonsInFolder = 0;
+
+    const questionEl = document.getElementById('question');
+    const subInfoEl = document.getElementById('sub-info');
+    const optionsEl = document.getElementById('options');
+    const nextBtn = document.getElementById('next-btn');
+    const folderNameEl = document.getElementById('folder-name');
+    const lessonNum = document.getElementById('lesson-num');
+    const totalLessonsEl = document.getElementById('total-lessons');
+    const scoreEl = document.getElementById('score');
+    const feedbackEl = document.getElementById('feedback');
+    const speakBtn = document.getElementById('speak-btn');
+    const progressFill = document.getElementById('progress-fill');
+    const folderBtns = document.querySelectorAll('.folder-btn');
+
+    function updateFolderUI() {
+        folderBtns.forEach((btn, i) => {
+            btn.classList.toggle('active', i === currentFolder);
+        });
+        folderNameEl.textContent = FOLDERS[currentFolder].name;
+        totalLessonsInFolder = FOLDERS[currentFolder].lessons.length;
+        totalLessonsEl.textContent = totalLessonsInFolder;
+        currentIndexInFolder = 0;
+        score = 0;
+        scoreEl.textContent = '0';
+        loadLesson();
+    }
+
+    function loadLesson() {
+        const folder = FOLDERS[currentFolder];
+        const lessons = folder.lessons;
+        if (currentIndexInFolder >= lessons.length) {
+            questionEl.innerHTML = '🎉 أكملت هذا المجلد!';
+            optionsEl.innerHTML = '';
+            subInfoEl.textContent = '';
+            nextBtn.textContent = '🔄 إعادة';
+            feedbackEl.textContent = '';
+            speakBtn.classList.add('hidden');
+            progressFill.style.width = '100%';
+            return;
+        }
+        const lesson = lessons[currentIndexInFolder];
+        currentLesson = lesson;
+        answered = false;
+        questionEl.textContent = lesson.q;
+        subInfoEl.textContent = lesson.sub || '';
+        lessonNum.textContent = currentIndexInFolder + 1;
+        progressFill.style.width = `${(currentIndexInFolder / lessons.length) * 100}%`;
+        const shuffled = [...lesson.options].sort(() => Math.random() - 0.5);
+        optionsEl.innerHTML = '';
+        shuffled.forEach(opt => {
+            const div = document.createElement('div');
+            div.className = 'opt';
+            div.textContent = opt;
+            div.onclick = () => selectOption(div, opt, lesson.correct);
+            optionsEl.appendChild(div);
+        });
+        feedbackEl.textContent = '';
+        speakBtn.classList.remove('hidden');
+        nextBtn.textContent = '▶ التالي';
+        // نطق تلقائي
+        speakHuman(lesson.q);
+    }
+
+    function selectOption(el, selected, correct) {
+        if (answered) return;
+        answered = true;
+        const allOpts = document.querySelectorAll('.opt');
+        allOpts.forEach(o => o.style.pointerEvents = 'none');
+        if (selected === correct) {
+            el.classList.add('correct');
+            feedbackEl.textContent = '✅ صحيح!';
+            feedbackEl.style.color = '#2ecc71';
+            score++;
+            scoreEl.textContent = score;
+        } else {
+            el.classList.add('wrong');
+            feedbackEl.textContent = `❌ خطأ. الإجابة: ${correct}`;
+            feedbackEl.style.color = '#ff4757';
+            allOpts.forEach(o => {
+                if (o.textContent === correct) o.classList.add('correct');
+            });
+        }
+        speakHuman(currentLesson.q);
+    }
+
+    speakBtn.onclick = () => {
+        if (currentLesson) {
+            speakHuman(currentLesson.q);
+            feedbackEl.textContent = '🔊 جاري التشغيل...';
+            feedbackEl.style.color = '#6a8cff';
+        }
+    };
+
+    nextBtn.onclick = () => {
+        const lessons = FOLDERS[currentFolder].lessons;
+        if (currentIndexInFolder < lessons.length - 1) {
+            currentIndexInFolder++;
+            loadLesson();
+        } else {
+            currentIndexInFolder = 0;
+            score = 0;
+            scoreEl.textContent = '0';
+            loadLesson();
+        }
+    };
+
+    folderBtns.forEach((btn, idx) => {
+        btn.onclick = () => {
+            currentFolder = idx;
+            updateFolderUI();
+        };
+    });
+
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+        window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.getVoices();
+        };
+    }
+
+    updateFolderUI();
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            nextBtn.click();
+        }
+    });
+</script>
+</body>
+</html>
